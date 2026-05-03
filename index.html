@@ -3,129 +3,119 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>بصريات أضواء - التجربة النهائية</title>
+    <title>بصريات أضواء</title>
     
     <script src="https://cdn.jsdelivr.net/npm/three@0.125.2/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-face-three.prod.js"></script>
 
     <style>
-        /* منع التمرير وحماية منطقة اللمس */
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; position: fixed; }
+        body { margin: 0; padding: 0; display: flex; flex-direction: column; height: 100vh; background: #000; font-family: sans-serif; }
         
-        #container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        /* منطقة الكاميرا تأخذ 80% من الشاشة */
+        #container { flex: 8; position: relative; width: 100%; overflow: hidden; }
 
-        /* شاشة البداية */
+        /* منطقة الأزرار تأخذ 20% ومنفصلة تماماً عن الكاميرا */
+        #toolbar { 
+            flex: 2; 
+            background: #1a1a1a; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: space-around; 
+            padding: 10px;
+            border-top: 2px solid #ffcc00;
+            z-index: 1000;
+        }
+
+        .row { display: flex; justify-content: center; gap: 10px; width: 100%; }
+
+        .btn { 
+            background: #ffcc00; color: #000; border: none; 
+            padding: 12px 20px; border-radius: 10px; 
+            font-weight: bold; cursor: pointer; flex: 1;
+            max-width: 150px; text-align: center;
+        }
+
+        .dot { width: 35px; height: 35px; border-radius: 5px; border: 2px solid #fff; }
+
         #loading-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #000; display: flex; flex-direction: column;
             align-items: center; justify-content: center; z-index: 9999; color: white;
         }
-
-        .start-btn {
-            background: #ffcc00; border: none; padding: 20px 50px;
-            border-radius: 40px; font-size: 20px; font-weight: bold; cursor: pointer; color: #000;
-        }
-
-        /* حاوية الأزرار - نستخدم z-index ضخم */
-        #ui-controls {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 5000; pointer-events: none;
-        }
-
-        .btn-box { pointer-events: auto; position: absolute; }
-
-        .lens-toggle { top: 30px; left: 50%; transform: translateX(-50%); }
-        .color-palette { left: 20px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 15px; background: rgba(0,0,0,0.6); padding: 15px; border-radius: 30px; }
-        .selection-bar { bottom: 50px; width: 100%; display: flex; justify-content: center; gap: 20px; }
-
-        .control-btn { 
-            background: #ffcc00; border: none; padding: 15px 30px; 
-            border-radius: 30px; font-weight: bold; cursor: pointer; 
-            color: #000; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        .dot { width: 35px; height: 35px; border-radius: 50%; border: 3px solid #fff; cursor: pointer; }
     </style>
 </head>
 <body>
 
     <div id="loading-overlay">
         <h1 style="color: #ffcc00;">بصريات أضواء</h1>
-        <button class="start-btn" onclick="startExperience()">اضغط هنا لبدء التجربة 🕶️</button>
+        <button class="btn" onclick="startAR()" style="max-width: 250px; font-size: 18px;">تشغيل الكاميرا الآن 🕶️</button>
     </div>
 
     <div id="container"></div>
 
-    <div id="ui-controls">
-        <div class="btn-box lens-toggle">
-            <button class="control-btn" id="photoBtn">وضع الشمس ☀️</button>
+    <div id="toolbar">
+        <!-- صف الموديلات -->
+        <div class="row">
+            <button class="btn" onclick="loadModel('wayfarer')">Wayfarer</button>
+            <button class="btn" onclick="loadModel('aviator')">Aviator</button>
+            <button class="btn" id="photoBtn" onclick="toggleLens()" style="background: #fff;">وضع الشمس ☀️</button>
         </div>
-
-        <div class="btn-box color-palette">
-            <div class="dot" style="background: #000000;" onclick="setFrameColor(0x000000)"></div>
-            <div class="dot" style="background: #ffd700;" onclick="setFrameColor(0xffd700)"></div>
-            <div class="dot" style="background: #c0c0c0;" onclick="setFrameColor(0xc0c0c0)"></div>
-            <div class="dot" style="background: #4a2c2a;" onclick="setFrameColor(0x4a2c2a)"></div>
-        </div>
-
-        <div class="btn-box selection-bar">
-            <button class="control-btn" id="wayfarerBtn">Wayfarer</button>
-            <button class="control-btn" id="aviatorBtn">Aviator</button>
+        <!-- صف الألوان -->
+        <div class="row">
+            <div class="dot" style="background: #000;" onclick="changeColor(0x000000)"></div>
+            <div class="dot" style="background: #ffd700;" onclick="changeColor(0xffd700)"></div>
+            <div class="dot" style="background: #c0c0c0;" onclick="changeColor(0xc0c0c0)"></div>
+            <div class="dot" style="background: #4a2c2a;" onclick="changeColor(0x4a2c2a)"></div>
         </div>
     </div>
 
     <script>
-        let mindarThree, currentGroup, lensMat, frameMat, isDark = false;
+        let mindarThree, anchor, currentGroup, frameMat, lensMat, isDark = false;
 
-        async function startExperience() {
+        async function startAR() {
             document.getElementById('loading-overlay').style.display = 'none';
-            
             mindarThree = new window.MINDAR.FACE.MindARThree({
                 container: document.querySelector("#container"),
             });
             const {renderer, scene, camera} = mindarThree;
             scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.5));
-            const anchor = mindarThree.addAnchor(168);
-
-            window.setFrameColor = (c) => { if(frameMat) frameMat.color.setHex(c); };
-
-            window.loadModel = (type) => {
-                if (currentGroup) anchor.group.remove(currentGroup);
-                currentGroup = new THREE.Group();
-                frameMat = new THREE.MeshStandardMaterial({color: 0x000000, roughness: 0.3, metalness: 0.7});
-                lensMat = new THREE.MeshStandardMaterial({color: isDark ? 0x111111 : 0xffffff, transparent: true, opacity: isDark ? 0.8 : 0.15});
-
-                if (type === 'wayfarer') {
-                    const f = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.5, 0.1), frameMat);
-                    const l = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.4), lensMat);
-                    l.position.z = 0.06;
-                    currentGroup.add(f, l);
-                } else {
-                    const l = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.04, 16, 100), frameMat); l.position.x = -0.4;
-                    const r = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.04, 16, 100), frameMat); r.position.x = 0.4;
-                    currentGroup.add(l, r);
-                }
-                currentGroup.scale.set(0.5, 0.5, 0.5);
-                anchor.group.add(currentGroup);
-            };
-
-            // ربط الأزرار - الطريقة المباشرة والأقوى
-            document.getElementById('wayfarerBtn').onclick = () => window.loadModel('wayfarer');
-            document.getElementById('aviatorBtn').onclick = () => window.loadModel('aviator');
-            document.getElementById('photoBtn').onclick = function() {
-                isDark = !isDark;
-                this.innerText = isDark ? "الوضع الداخلي 🏠" : "وضع الشمس ☀️";
-                if(lensMat) {
-                    lensMat.color.setHex(isDark ? 0x111111 : 0xffffff);
-                    lensMat.opacity = isDark ? 0.8 : 0.15;
-                }
-            };
+            anchor = mindarThree.addAnchor(168);
 
             await mindarThree.start();
             renderer.setAnimationLoop(() => renderer.render(scene, camera));
-            window.loadModel('wayfarer');
+            loadModel('wayfarer');
         }
+
+        window.loadModel = (type) => {
+            if (currentGroup) anchor.group.remove(currentGroup);
+            currentGroup = new THREE.Group();
+            frameMat = new THREE.MeshStandardMaterial({color: 0x000000, roughness: 0.3, metalness: 0.7});
+            lensMat = new THREE.MeshStandardMaterial({color: isDark ? 0x111111 : 0xffffff, transparent: true, opacity: isDark ? 0.8 : 0.15});
+
+            if (type === 'wayfarer') {
+                const f = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.5, 0.1), frameMat);
+                const l = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.4), lensMat);
+                l.position.z = 0.06;
+                currentGroup.add(f, l);
+            } else {
+                const l = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.04, 16, 100), frameMat); l.position.x = -0.4;
+                const r = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.04, 16, 100), frameMat); r.position.x = 0.4;
+                currentGroup.add(l, r);
+            }
+            currentGroup.scale.set(0.5, 0.5, 0.5);
+            anchor.group.add(currentGroup);
+        };
+
+        window.changeColor = (c) => { if(frameMat) frameMat.color.setHex(c); };
+
+        window.toggleLens = () => {
+            isDark = !isDark;
+            document.getElementById('photoBtn').innerText = isDark ? "داخلي 🏠" : "شمس ☀️";
+            if(lensMat) {
+                lensMat.color.setHex(isDark ? 0x111111 : 0xffffff);
+                lensMat.opacity = isDark ? 0.8 : 0.15;
+            }
+        };
     </script>
 </body>
 </html>
