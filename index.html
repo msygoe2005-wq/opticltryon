@@ -3,53 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>بصريات أضواء - AR</title>
+    <title>بصريات أضواء - تجربة افتراضية</title>
     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.0/dist/mindar-face-three.prod.js"></script>
+    <!-- روابط مكتبات مستقرة جداً لضمان التشغيل -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.125.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-face-three.prod.js"></script>
 
     <style>
         body { margin: 0; overflow: hidden; font-family: sans-serif; background: #000; }
         #container { width: 100vw; height: 100vh; }
         
-        /* شاشة البداية لحل مشكلة الأيفون */
         #loading-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
             align-items: center; justify-content: center; z-index: 200; color: white;
+            text-align: center;
         }
 
         .start-btn {
             background: #ffcc00; border: none; padding: 15px 40px;
             border-radius: 30px; font-size: 18px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(255, 204, 0, 0.4);
         }
 
-        .color-palette { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 15px; z-index: 100; }
-        .color-dot { width: 35px; height: 35px; border-radius: 50%; border: 2px solid white; cursor: pointer; }
-        .selection-bar { position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: center; gap: 10px; z-index: 100; }
-        .glass-item { padding: 10px 20px; background: rgba(255,255,255,0.2); color: white; border-radius: 20px; cursor: pointer; backdrop-filter: blur(5px); }
+        .color-palette { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 15px; z-index: 100; background: rgba(255,255,255,0.1); padding: 15px 8px; border-radius: 25px; backdrop-filter: blur(5px); }
+        .color-dot { width: 30px; height: 30px; border-radius: 50%; border: 2px solid white; cursor: pointer; }
+        
+        .selection-bar { position: absolute; bottom: 30px; width: 100%; display: flex; justify-content: center; gap: 15px; z-index: 100; }
+        .glass-item { padding: 12px 25px; background: rgba(255,255,255,0.2); color: white; border-radius: 25px; cursor: pointer; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.3); }
+        
         .lens-toggle { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 100; }
     </style>
 </head>
 <body>
 
-    <!-- شاشة البداية -->
     <div id="loading-overlay">
-        <h2 style="margin-bottom: 20px;">بصريات أضواء</h2>
+        <h1 style="color: #ffcc00;">بصريات أضواء</h1>
+        <p>جاهز لتجربة نظارتك الجديدة؟</p>
         <button class="start-btn" id="startBtn">بدء تجربة القياس 🕶️</button>
-        <p style="margin-top: 15px; font-size: 12px;">يرجى السماح بالوصول للكاميرا عند الطلب</p>
+        <p style="margin-top: 20px; font-size: 13px; color: #aaa;">تأكد من السماح للكاميرا بالعمل</p>
     </div>
 
     <div id="container"></div>
 
     <div class="lens-toggle">
-        <button id="photochromicBtn" style="background: #ffcc00; border: none; padding: 10px 25px; border-radius: 25px; font-weight: bold;">وضع الشمس ☀️</button>
+        <button id="photochromicBtn" style="background: #ffcc00; border: none; padding: 10px 25px; border-radius: 25px; font-weight: bold; cursor: pointer;">وضع الشمس ☀️</button>
     </div>
 
     <div class="color-palette">
         <div class="color-dot" style="background: #000000;" onclick="window.changeFrameColor(0x000000)"></div>
         <div class="color-dot" style="background: #ffd700;" onclick="window.changeFrameColor(0xffd700)"></div>
         <div class="color-dot" style="background: #c0c0c0;" onclick="window.changeFrameColor(0xc0c0c0)"></div>
+        <div class="color-dot" style="background: #4a2c2a;" onclick="window.changeFrameColor(0x4a2c2a)"></div>
     </div>
 
     <div class="selection-bar">
@@ -79,31 +84,58 @@
                 if (currentGroup) anchor.group.remove(currentGroup);
                 currentGroup = new THREE.Group();
                 frameMaterials = [];
-                const commonFrameMat = new THREE.MeshStandardMaterial({color: 0x000000, roughness: 0.2, metalness: 0.5});
-                frameMaterials.push(commonFrameMat);
-                lensMat = new THREE.MeshStandardMaterial({ color: isDark ? 0x111111 : 0xffffff, transparent: true, opacity: isDark ? 0.8 : 0.1 });
+
+                const frameMat = new THREE.MeshStandardMaterial({color: 0x000000, roughness: 0.3, metalness: 0.6});
+                frameMaterials.push(frameMat);
+
+                lensMat = new THREE.MeshStandardMaterial({
+                    color: isDark ? 0x111111 : 0xffffff,
+                    transparent: true,
+                    opacity: isDark ? 0.8 : 0.15
+                });
 
                 if (type === 'wayfarer') {
-                    const frame = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.5, 0.1), commonFrameMat);
+                    const frame = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.5, 0.1), frameMat);
                     const lens = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.4), lensMat);
                     lens.position.z = 0.06;
                     currentGroup.add(frame, lens);
                 } else {
-                    const l = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.04, 16, 100), commonFrameMat); l.position.x = -0.45;
-                    const r = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.04, 16, 100), commonFrameMat); r.position.x = 0.45;
-                    currentGroup.add(l, r);
+                    const l = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.04, 16, 100), frameMat); l.position.x = -0.4;
+                    const r = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.04, 16, 100), frameMat); r.position.x = 0.4;
+                    const lLens = new THREE.Mesh(new THREE.CircleGeometry(0.33, 32), lensMat); lLens.position.set(-0.4, 0, 0.01);
+                    const rLens = new THREE.Mesh(new THREE.CircleGeometry(0.33, 32), lensMat); rLens.position.set(0.4, 0, 0.01);
+                    currentGroup.add(l, r, lLens, rLens);
                 }
                 currentGroup.scale.set(0.5, 0.5, 0.5);
                 anchor.group.add(currentGroup);
             };
 
-            window.changeFrameColor = (color) => { frameMaterials.forEach(m => m.color.setHex(color)); };
+            window.changeFrameColor = (color) => {
+                frameMaterials.forEach(m => m.color.setHex(color));
+            };
+
+            document.getElementById('photochromicBtn').addEventListener('click', () => {
+                isDark = !isDark;
+                const btn = document.getElementById('photochromicBtn');
+                if (isDark) {
+                    lensMat.color.setHex(0x111111); lensMat.opacity = 0.8;
+                    btn.innerText = "الوضع الداخلي 🏠";
+                } else {
+                    lensMat.color.setHex(0xffffff); lensMat.opacity = 0.15;
+                    btn.innerText = "وضع الشمس ☀️";
+                }
+            });
 
             document.getElementById('startBtn').addEventListener('click', async () => {
                 document.getElementById('loading-overlay').style.display = 'none';
-                await mindarThree.start();
-                renderer.setAnimationLoop(() => { renderer.render(scene, camera); });
-                window.switchModel('wayfarer');
+                try {
+                    await mindarThree.start();
+                    renderer.setAnimationLoop(() => { renderer.render(scene, camera); });
+                    window.switchModel('wayfarer');
+                } catch (e) {
+                    console.error("AR Start error:", e);
+                    alert("تعذر تشغيل الكاميرا. يرجى التأكد من إعطاء الإذن للمتصفح.");
+                }
             });
         };
 
