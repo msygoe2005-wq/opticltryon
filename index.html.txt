@@ -1,0 +1,88 @@
+<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.0/dist/mindar-face-three.prod.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<style>
+    body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
+    #container { width: 100vw; height: 100vh; }
+    .controls { position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: center; gap: 10px; z-index: 100; }
+    .side-controls { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 10px; z-index: 100; }
+    button { padding: 10px 20px; border-radius: 20px; border: none; cursor: pointer; font-weight: bold; }
+    .color-dot { width: 30px; height: 30px; border-radius: 50%; border: 2px solid white; cursor: pointer; }
+</style>
+
+<div id="container"></div>
+
+<div class="controls">
+    <button onclick="window.switchModel('wayfarer')">Wayfarer</button>
+    <button onclick="window.switchModel('aviator')">Aviator</button>
+    <button id="pBtn" onclick="window.togglePhotochromic()" style="background:#ffcc00">وضع الشمس ☀️</button>
+</div>
+
+<div class="side-controls">
+    <div class="color-dot" style="background:#000" onclick="window.changeFrameColor(0x000000)"></div>
+    <div class="color-dot" style="background:#ffd700" onclick="window.changeFrameColor(0xffd700)"></div>
+    <div class="color-dot" style="background:#c0c0c0" onclick="window.changeFrameColor(0xc0c0c0)"></div>
+</div>
+
+<script>
+    let currentGroup, frameMat, lensMat, isDark = false;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const start = async () => {
+            const mindarThree = new window.MINDAR.FACE.MindARThree({
+                container: document.querySelector("#container")
+            });
+            const {renderer, scene, camera} = mindarThree;
+            scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.5));
+            const anchor = mindarThree.addAnchor(168);
+
+            // تعريف الوظائف على window لتعمل مع onclick
+            window.switchModel = (type) => {
+                if (currentGroup) anchor.group.remove(currentGroup);
+                currentGroup = new THREE.Group();
+                frameMat = new THREE.MeshStandardMaterial({color: 0x000000, roughness: 0.2, metalness: 0.5});
+                lensMat = new THREE.MeshStandardMaterial({
+                    color: isDark ? 0x111111 : 0xffffff,
+                    transparent: true,
+                    opacity: isDark ? 0.8 : 0.1
+                });
+
+                if (type === 'wayfarer') {
+                    const frame = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.5, 0.1), frameMat);
+                    const lens = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.4), lensMat);
+                    lens.position.z = 0.06;
+                    currentGroup.add(frame, lens);
+                } else {
+                    const l = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.04, 16, 100), frameMat);
+                    l.position.x = -0.45;
+                    const r = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.04, 16, 100), frameMat);
+                    r.position.x = 0.45;
+                    const lLens = new THREE.Mesh(new THREE.CircleGeometry(0.38, 32), lensMat);
+                    lLens.position.set(-0.45, 0, 0.01);
+                    const rLens = new THREE.Mesh(new THREE.CircleGeometry(0.38, 32), lensMat);
+                    rLens.position.set(0.45, 0, 0.01);
+                    currentGroup.add(l, r, lLens, rLens);
+                }
+                currentGroup.scale.set(0.45, 0.45, 0.45);
+                anchor.group.add(currentGroup);
+            };
+
+            window.changeFrameColor = (c) => { if(frameMat) frameMat.color.setHex(c); };
+            
+            window.togglePhotochromic = () => {
+                isDark = !isDark;
+                const btn = document.getElementById('pBtn');
+                if(lensMat) {
+                    lensMat.color.setHex(isDark ? 0x111111 : 0xffffff);
+                    lensMat.opacity = isDark ? 0.8 : 0.1;
+                }
+                btn.innerText = isDark ? "وضع شفاف 🏠" : "وضع الشمس ☀️";
+            };
+
+            window.switchModel('wayfarer');
+            await mindarThree.start();
+            renderer.setAnimationLoop(() => { renderer.render(scene, camera); });
+        };
+        start();
+    });
+</script>
