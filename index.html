@@ -1,88 +1,139 @@
-<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.0/dist/mindar-face-three.prod.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optical Lights - تخصيص كامل</title>
+    
+    <!-- استدعاء المكتبات بصيغة متوافقة -->
+    <script async src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.147.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.147.0/examples/jsm/",
+            "mindar-face-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.0/dist/mindar-face-three.esm.js"
+        }
+    }
+    </script>
 
-<style>
-    body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
-    #container { width: 100vw; height: 100vh; }
-    .controls { position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: center; gap: 10px; z-index: 100; }
-    .side-controls { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 10px; z-index: 100; }
-    button { padding: 10px 20px; border-radius: 20px; border: none; cursor: pointer; font-weight: bold; }
-    .color-dot { width: 30px; height: 30px; border-radius: 50%; border: 2px solid white; cursor: pointer; }
-</style>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: sans-serif; background: #000; }
+        #container { width: 100vw; height: 100vh; }
+        .color-palette { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 15px; background: rgba(255,255,255,0.1); padding: 20px 10px; border-radius: 30px; backdrop-filter: blur(10px); z-index: 100; }
+        .color-dot { width: 35px; height: 35px; border-radius: 50%; border: 2px solid white; cursor: pointer; transition: 0.3s; }
+        .selection-bar { position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: center; gap: 10px; z-index: 100; }
+        .glass-item { padding: 10px 20px; background: rgba(255,255,255,0.2); color: white; border-radius: 20px; cursor: pointer; backdrop-filter: blur(5px); }
+        .lens-toggle { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 100; }
+        button.main-btn { background: #ffcc00; border: none; padding: 10px 25px; border-radius: 25px; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
 
-<div id="container"></div>
+    <div id="container"></div>
 
-<div class="controls">
-    <button onclick="window.switchModel('wayfarer')">Wayfarer</button>
-    <button onclick="window.switchModel('aviator')">Aviator</button>
-    <button id="pBtn" onclick="window.togglePhotochromic()" style="background:#ffcc00">وضع الشمس ☀️</button>
-</div>
+    <div class="lens-toggle">
+        <button class="main-btn" id="photochromicBtn">تفعيل وضع الشمس ☀️</button>
+    </div>
 
-<div class="side-controls">
-    <div class="color-dot" style="background:#000" onclick="window.changeFrameColor(0x000000)"></div>
-    <div class="color-dot" style="background:#ffd700" onclick="window.changeFrameColor(0xffd700)"></div>
-    <div class="color-dot" style="background:#c0c0c0" onclick="window.changeFrameColor(0xc0c0c0)"></div>
-</div>
+    <div class="color-palette">
+        <div style="color: white; font-size: 10px; text-align: center; margin-bottom: 5px;">لون الإطار</div>
+        <div class="color-dot" style="background: #000000;" data-color="0x000000"></div>
+        <div class="color-dot" style="background: #ffd700;" data-color="0xffd700"></div>
+        <div class="color-dot" style="background: #c0c0c0;" data-color="0xc0c0c0"></div>
+        <div class="color-dot" style="background: #4a2c2a;" data-color="0x4a2c2a"></div>
+    </div>
 
-<script>
-    let currentGroup, frameMat, lensMat, isDark = false;
+    <div class="selection-bar">
+        <div class="glass-item" id="btn-wayfarer">Wayfarer</div>
+        <div class="glass-item" id="btn-aviator">Aviator</div>
+    </div>
 
-    document.addEventListener('DOMContentLoaded', () => {
+    <script type="module">
+        import * as THREE from 'three';
+        import { MindARThree } from 'mindar-face-three';
+
+        let currentGroup = null;
+        let frameMaterials = [];
+        let lensMat = null;
+        let isDark = false;
+        let mindarThree = null;
+
         const start = async () => {
-            const mindarThree = new window.MINDAR.FACE.MindARThree({
-                container: document.querySelector("#container")
+            mindarThree = new MindARThree({
+                container: document.querySelector("#container"),
             });
             const {renderer, scene, camera} = mindarThree;
-            scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.5));
+
+            const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1.5);
+            scene.add(light);
+
             const anchor = mindarThree.addAnchor(168);
 
-            // تعريف الوظائف على window لتعمل مع onclick
             window.switchModel = (type) => {
                 if (currentGroup) anchor.group.remove(currentGroup);
                 currentGroup = new THREE.Group();
-                frameMat = new THREE.MeshStandardMaterial({color: 0x000000, roughness: 0.2, metalness: 0.5});
+                frameMaterials = [];
+
+                const commonFrameMat = new THREE.MeshStandardMaterial({color: 0x000000, roughness: 0.2, metalness: 0.5});
+                frameMaterials.push(commonFrameMat);
+
                 lensMat = new THREE.MeshStandardMaterial({
                     color: isDark ? 0x111111 : 0xffffff,
                     transparent: true,
-                    opacity: isDark ? 0.8 : 0.1
+                    opacity: isDark ? 0.8 : 0.1,
+                    roughness: 0
                 });
 
                 if (type === 'wayfarer') {
-                    const frame = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.5, 0.1), frameMat);
-                    const lens = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.4), lensMat);
+                    const frameGeo = new THREE.BoxGeometry(1.4, 0.5, 0.1);
+                    const frame = new THREE.Mesh(frameGeo, commonFrameMat);
+                    const lGeo = new THREE.PlaneGeometry(1.2, 0.4);
+                    const lens = new THREE.Mesh(lGeo, lensMat);
                     lens.position.z = 0.06;
                     currentGroup.add(frame, lens);
                 } else {
-                    const l = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.04, 16, 100), frameMat);
-                    l.position.x = -0.45;
-                    const r = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.04, 16, 100), frameMat);
-                    r.position.x = 0.45;
-                    const lLens = new THREE.Mesh(new THREE.CircleGeometry(0.38, 32), lensMat);
-                    lLens.position.set(-0.45, 0, 0.01);
-                    const rLens = new THREE.Mesh(new THREE.CircleGeometry(0.38, 32), lensMat);
-                    rLens.position.set(0.45, 0, 0.01);
+                    const frameGeo = new THREE.TorusGeometry(0.4, 0.04, 16, 100);
+                    const l = new THREE.Mesh(frameGeo, commonFrameMat); l.position.x = -0.45;
+                    const r = new THREE.Mesh(frameGeo, commonFrameMat); r.position.x = 0.45;
+                    const lLens = new THREE.Mesh(new THREE.CircleGeometry(0.38, 32), lensMat); lLens.position.set(-0.45, 0, 0.01);
+                    const rLens = new THREE.Mesh(new THREE.CircleGeometry(0.38, 32), lensMat); rLens.position.set(0.45, 0, 0.01);
                     currentGroup.add(l, r, lLens, rLens);
                 }
-                currentGroup.scale.set(0.45, 0.45, 0.45);
+
+                currentGroup.scale.set(0.5, 0.5, 0.5);
                 anchor.group.add(currentGroup);
             };
 
-            window.changeFrameColor = (c) => { if(frameMat) frameMat.color.setHex(c); };
-            
-            window.togglePhotochromic = () => {
-                isDark = !isDark;
-                const btn = document.getElementById('pBtn');
-                if(lensMat) {
-                    lensMat.color.setHex(isDark ? 0x111111 : 0xffffff);
-                    lensMat.opacity = isDark ? 0.8 : 0.1;
-                }
-                btn.innerText = isDark ? "وضع شفاف 🏠" : "وضع الشمس ☀️";
-            };
+            // ربط الأزرار بالأحداث داخل الموديول
+            document.querySelectorAll('.color-dot').forEach(dot => {
+                dot.addEventListener('click', () => {
+                    const color = parseInt(dot.getAttribute('data-color'));
+                    frameMaterials.forEach(mat => mat.color.setHex(color));
+                });
+            });
 
-            window.switchModel('wayfarer');
+            document.getElementById('btn-wayfarer').addEventListener('click', () => switchModel('wayfarer'));
+            document.getElementById('btn-aviator').addEventListener('click', () => switchModel('aviator'));
+            
+            document.getElementById('photochromicBtn').addEventListener('click', () => {
+                isDark = !isDark;
+                const btn = document.getElementById('photochromicBtn');
+                if (isDark) {
+                    lensMat.color.setHex(0x111111); lensMat.opacity = 0.8;
+                    btn.innerText = "الوضع الداخلي 🏠"; btn.style.background = "#333"; btn.style.color = "#fff";
+                } else {
+                    lensMat.color.setHex(0xffffff); lensMat.opacity = 0.1;
+                    btn.innerText = "تفعيل وضع الشمس ☀️"; btn.style.background = "#ffcc00"; btn.style.color = "#000";
+                }
+            });
+
+            switchModel('wayfarer');
             await mindarThree.start();
             renderer.setAnimationLoop(() => { renderer.render(scene, camera); });
-        };
+        }
+
         start();
-    });
-</script>
+    </script>
+</body>
+</html>
