@@ -9,30 +9,23 @@
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-face-three.prod.js"></script>
 
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; display: flex; flex-direction: column; }
-        #container { flex: 7.5; position: relative; width: 100%; background: #000; }
-        
-        #toolbar { 
-            flex: 2.5; background: #111; display: flex; flex-direction: column; 
-            justify-content: center; gap: 10px; padding: 15px; 
-            border-top: 3px solid #ffcc00; z-index: 1000; 
-        }
-
-        .row { display: flex; justify-content: center; gap: 10px; width: 100%; }
-        .btn { background: #ffcc00; color: #000; border: none; padding: 12px; border-radius: 12px; font-weight: bold; cursor: pointer; flex: 1; font-size: 14px; }
-        .color-dot { width: 35px; height: 35px; border-radius: 50%; border: 2px solid #fff; cursor: pointer; }
-        
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; display: flex; flex-direction: column; position: fixed; }
+        #container { flex: 7.5; position: relative; width: 100%; background: #000; overflow: hidden; }
+        #toolbar { flex: 2.5; background: #111; display: flex; flex-direction: column; justify-content: center; gap: 10px; padding: 15px; border-top: 3px solid #ffcc00; z-index: 1000; }
+        .row { display: flex; justify-content: center; gap: 8px; width: 100%; }
+        .btn { background: #ffcc00; color: #000; border: none; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; flex: 1; font-size: 13px; }
+        .color-dot { width: 35px; height: 35px; border-radius: 50%; border: 2px solid #fff; }
         #loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; color: white; }
         
-        /* إخفاء أي فيديو خلفي قد يظهر بشكل خاطئ */
-        video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+        /* إجبار الفيديو على الظهور */
+        video { position: absolute !important; top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) !important; min-width: 100% !important; min-height: 100% !important; object-fit: cover !important; }
     </style>
 </head>
 <body>
 
     <div id="loading-overlay">
         <h1 style="color: #ffcc00;">بصريات أضواء</h1>
-        <button class="btn" onclick="startExperience()" style="max-width: 250px; font-size: 18px;">تشغيل الكاميرا الآن 🕶️</button>
+        <button class="btn" onclick="startExperience()" style="max-width: 200px; padding: 15px;">تشغيل الكاميرا 🕶️</button>
     </div>
 
     <div id="container"></div>
@@ -56,11 +49,9 @@
 
         async function startExperience() {
             document.getElementById('loading-overlay').style.display = 'none';
-            
             mindarThree = new window.MINDAR.FACE.MindARThree({
                 container: document.querySelector("#container"),
             });
-            
             const {renderer, scene, camera} = mindarThree;
             scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.5));
             anchor = mindarThree.addAnchor(168);
@@ -68,23 +59,20 @@
             try {
                 await mindarThree.start();
                 
-                // إجبار الفيديو على العمل (مهم جداً للابتوب Dell والأيفون)
+                // كود إضافي للأيفون: التأكد من أن الفيديو لا يتوقف
                 const video = document.querySelector('video');
                 if (video) {
                     video.setAttribute('playsinline', '');
-                    video.style.position = 'absolute';
-                    video.style.top = '0';
-                    video.style.left = '0';
-                    video.style.width = '100%';
-                    video.style.height = '100%';
-                    video.play();
+                    video.play().catch(() => {
+                        // محاولة تشغيل أخرى عند التفاعل
+                        document.body.addEventListener('click', () => video.play(), {once: true});
+                    });
                 }
                 
                 renderer.setAnimationLoop(() => renderer.render(scene, camera));
                 loadModel('wayfarer');
             } catch (err) {
-                console.error("Camera Error:", err);
-                alert("تأكد من السماح للكاميرا بالعمل وإغلاق أي تطبيقات كاميرا أخرى.");
+                alert("خطأ في الكاميرا، يرجى تحديث الصفحة.");
             }
         }
 
