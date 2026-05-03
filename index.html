@@ -3,19 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Optical Lights - تخصيص كامل</title>
+    <title>Optical Lights - AR Try-On</title>
     
-    <!-- استدعاء المكتبات بصيغة متوافقة -->
-    <script async src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"></script>
-    <script type="importmap">
-    {
-        "imports": {
-            "three": "https://unpkg.com/three@0.147.0/build/three.module.js",
-            "three/addons/": "https://unpkg.com/three@0.147.0/examples/jsm/",
-            "mindar-face-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.0/dist/mindar-face-three.esm.js"
-        }
-    }
-    </script>
+    <!-- روابط مكتبات مستقرة جداً -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.0/dist/mindar-face-three.prod.js"></script>
 
     <style>
         body { margin: 0; overflow: hidden; font-family: sans-serif; background: #000; }
@@ -33,34 +25,31 @@
     <div id="container"></div>
 
     <div class="lens-toggle">
-        <button class="main-btn" id="photochromicBtn">تفعيل وضع الشمس ☀️</button>
+        <button class="main-btn" id="photochromicBtn" onclick="togglePhotochromic()">تفعيل وضع الشمس ☀️</button>
     </div>
 
     <div class="color-palette">
         <div style="color: white; font-size: 10px; text-align: center; margin-bottom: 5px;">لون الإطار</div>
-        <div class="color-dot" style="background: #000000;" data-color="0x000000"></div>
-        <div class="color-dot" style="background: #ffd700;" data-color="0xffd700"></div>
-        <div class="color-dot" style="background: #c0c0c0;" data-color="0xc0c0c0"></div>
-        <div class="color-dot" style="background: #4a2c2a;" data-color="0x4a2c2a"></div>
+        <div class="color-dot" style="background: #000000;" onclick="changeFrameColor(0x000000)"></div>
+        <div class="color-dot" style="background: #ffd700;" onclick="changeFrameColor(0xffd700)"></div>
+        <div class="color-dot" style="background: #c0c0c0;" onclick="changeFrameColor(0xc0c0c0)"></div>
+        <div class="color-dot" style="background: #4a2c2a;" onclick="changeFrameColor(0x4a2c2a)"></div>
     </div>
 
     <div class="selection-bar">
-        <div class="glass-item" id="btn-wayfarer">Wayfarer</div>
-        <div class="glass-item" id="btn-aviator">Aviator</div>
+        <div class="glass-item" onclick="switchModel('wayfarer')">Wayfarer</div>
+        <div class="glass-item" onclick="switchModel('aviator')">Aviator</div>
     </div>
 
-    <script type="module">
-        import * as THREE from 'three';
-        import { MindARThree } from 'mindar-face-three';
-
+    <script>
         let currentGroup = null;
         let frameMaterials = [];
         let lensMat = null;
         let isDark = false;
-        let mindarThree = null;
 
         const start = async () => {
-            mindarThree = new MindARThree({
+            // نستخدم الصيغة الكلاسيكية للمكتبة لضمان التوافق
+            const mindarThree = new window.MINDAR.FACE.MindARThree({
                 container: document.querySelector("#container"),
             });
             const {renderer, scene, camera} = mindarThree;
@@ -105,35 +94,29 @@
                 anchor.group.add(currentGroup);
             };
 
-            // ربط الأزرار بالأحداث داخل الموديول
-            document.querySelectorAll('.color-dot').forEach(dot => {
-                dot.addEventListener('click', () => {
-                    const color = parseInt(dot.getAttribute('data-color'));
-                    frameMaterials.forEach(mat => mat.color.setHex(color));
-                });
-            });
+            window.changeFrameColor = (color) => {
+                frameMaterials.forEach(mat => mat.color.setHex(color));
+            };
 
-            document.getElementById('btn-wayfarer').addEventListener('click', () => switchModel('wayfarer'));
-            document.getElementById('btn-aviator').addEventListener('click', () => switchModel('aviator'));
-            
-            document.getElementById('photochromicBtn').addEventListener('click', () => {
+            window.togglePhotochromic = () => {
                 isDark = !isDark;
                 const btn = document.getElementById('photochromicBtn');
                 if (isDark) {
                     lensMat.color.setHex(0x111111); lensMat.opacity = 0.8;
-                    btn.innerText = "الوضع الداخلي 🏠"; btn.style.background = "#333"; btn.style.color = "#fff";
+                    btn.innerText = "الوضع الداخلي 🏠";
                 } else {
                     lensMat.color.setHex(0xffffff); lensMat.opacity = 0.1;
-                    btn.innerText = "تفعيل وضع الشمس ☀️"; btn.style.background = "#ffcc00"; btn.style.color = "#000";
+                    btn.innerText = "تفعيل وضع الشمس ☀️";
                 }
-            });
+            };
 
             switchModel('wayfarer');
             await mindarThree.start();
             renderer.setAnimationLoop(() => { renderer.render(scene, camera); });
         }
 
-        start();
+        // انتظر تحميل كل شيء ثم ابدأ
+        window.onload = start;
     </script>
 </body>
 </html>
