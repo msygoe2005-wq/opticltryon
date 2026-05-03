@@ -9,21 +9,22 @@
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-face-three.prod.js"></script>
 
     <style>
+        /* إعدادات الصفحة الأساسية */
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; display: flex; flex-direction: column; }
         
-        /* منطقة الكاميرا تغلغل 75% من الشاشة */
-        #container { flex: 7.5; position: relative; width: 100%; background: #000; z-index: 1; }
+        /* منطقة الكاميرا (80% من الشاشة) */
+        #container { flex: 8; position: relative; width: 100%; background: #000; z-index: 1; }
 
-        /* شريط التحكم السفلي - منفصل تماماً لضمان اللمس */
+        /* منطقة الأزرار (20% من الشاشة) - معزولة لضمان اللمس */
         #toolbar { 
-            flex: 2.5; 
+            flex: 2; 
             background: #111; 
             display: flex; 
             flex-direction: column; 
             justify-content: space-around; 
             padding: 10px; 
             border-top: 2px solid #ffcc00; 
-            z-index: 1000; /* أعلى من الكاميرا */
+            z-index: 1000; 
         }
 
         .row { display: flex; justify-content: center; gap: 10px; width: 100%; }
@@ -33,7 +34,6 @@
             padding: 12px; border-radius: 10px; 
             font-weight: bold; cursor: pointer; flex: 1;
             font-size: 14px; text-align: center;
-            -webkit-tap-highlight-color: transparent; /* منع اللون الأزرق عند اللمس في آيفون */
         }
 
         .dot { 
@@ -46,28 +46,32 @@
             background: #000; display: flex; flex-direction: column; 
             align-items: center; justify-content: center; z-index: 9999; color: white; 
         }
+        
+        /* إجبار الفيديو على الظهور */
+        video { object-fit: cover !important; }
     </style>
 </head>
 <body>
 
     <div id="start-overlay">
         <h1 style="color: #ffcc00;">بصريات أضواء</h1>
-        <button class="btn" onclick="startExperience()" style="max-width: 200px; font-size: 18px;">ابدأ التجربة الآن 👓</button>
+        <button class="btn" onclick="startExperience()" style="max-width: 250px; font-size: 18px;">تشغيل الكاميرا والقياس 👓</button>
+        <p style="margin-top: 15px; font-size: 12px; color: #aaa;">تأكد من وجود إضاءة جيدة لوجهك</p>
     </div>
 
     <div id="container"></div>
 
     <div id="toolbar">
         <div class="row">
-            <button class="btn" onclick="window.loadModel('wayfarer')">موديل Wayfarer</button>
-            <button class="btn" onclick="window.loadModel('aviator')">موديل Aviator</button>
-            <button class="btn" id="photoBtn" onclick="window.toggleLens()" style="background: #fff;">وضع الشمس ☀️</button>
+            <button class="btn" onclick="loadGlasses('wayfarer')">موديل Wayfarer</button>
+            <button class="btn" onclick="loadGlasses('aviator')">موديل Aviator</button>
+            <button class="btn" id="photoBtn" onclick="toggleLensStatus()" style="background: #fff;">وضع الشمس ☀️</button>
         </div>
         <div class="row">
-            <div class="dot" style="background: #000;" onclick="window.changeColor(0x000000)"></div>
-            <div class="dot" style="background: #ffd700;" onclick="window.changeColor(0xffd700)"></div>
-            <div class="dot" style="background: #c0c0c0;" onclick="window.changeColor(0xc0c0c0)"></div>
-            <div class="dot" style="background: #4a2c2a;" onclick="window.changeColor(0x4a2c2a)"></div>
+            <div class="dot" style="background: #000;" onclick="changeFrameColor(0x000000)"></div>
+            <div class="dot" style="background: #ffd700;" onclick="changeFrameColor(0xffd700)"></div>
+            <div class="dot" style="background: #c0c0c0;" onclick="changeFrameColor(0xc0c0c0)"></div>
+            <div class="dot" style="background: #4a2c2a;" onclick="changeColor(0x4a2c2a)"></div>
         </div>
     </div>
 
@@ -85,12 +89,16 @@
             scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.5));
             anchor = mindarThree.addAnchor(168);
 
-            await mindarThree.start();
-            renderer.setAnimationLoop(() => renderer.render(scene, camera));
-            window.loadModel('wayfarer');
+            try {
+                await mindarThree.start();
+                renderer.setAnimationLoop(() => renderer.render(scene, camera));
+                loadGlasses('wayfarer'); // تحميل أول موديل تلقائياً
+            } catch (e) {
+                alert("يرجى تحديث الصفحة والسماح للكاميرا");
+            }
         }
 
-        window.loadModel = (type) => {
+        window.loadGlasses = (type) => {
             if (currentGroup) anchor.group.remove(currentGroup);
             currentGroup = new THREE.Group();
             
@@ -117,11 +125,9 @@
             anchor.group.add(currentGroup);
         };
 
-        window.changeColor = (c) => { 
-            if(frameMat) frameMat.color.setHex(c); 
-        };
+        window.changeFrameColor = (c) => { if(frameMat) frameMat.color.setHex(c); };
 
-        window.toggleLens = () => {
+        window.toggleLensStatus = () => {
             isDark = !isDark;
             document.getElementById('photoBtn').innerText = isDark ? "داخلي 🏠" : "شمس ☀️";
             if(lensMat) {
