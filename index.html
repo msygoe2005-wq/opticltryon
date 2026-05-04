@@ -3,58 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>بصريات أضواء - إدارة الإطارات</title>
+    <title>بصريات أضواء - نظام القياس الاحترافي</title>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; font-family: sans-serif; background: #000; color: white; overflow: hidden; }
-        #entry-screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #000; z-index: 100; }
+        #entry-screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle, #222 0%, #000 100%); z-index: 100; text-align: center; }
         #capture-screen { display: none; position: fixed; inset: 0; flex-direction: column; z-index: 50; }
-        #video-preview { width: 100%; height: 75%; object-fit: cover; }
+        #video-preview { width: 100%; height: 75%; object-fit: cover; background: #111; }
         #editor-screen { display: none; position: fixed; inset: 0; flex-direction: column; z-index: 25; }
         #canvas-wrap { position: relative; width: 100%; height: 70%; background: #1a1a1a; display: flex; justify-content: center; align-items: center; overflow: hidden; }
         #photo-result { max-width: 100%; max-height: 100%; pointer-events: none; }
-        #glasses-overlay { position: absolute; width: 180px; cursor: move; touch-action: none; z-index: 30; display: none; }
         
+        /* النظارة الشفافة */
+        #glasses-overlay { 
+            position: absolute; 
+            width: 200px; 
+            cursor: move; 
+            touch-action: none; 
+            z-index: 30; 
+            filter: drop-shadow(0 5px 15px rgba(0,0,0,0.3));
+        }
+
         .toolbar { flex: 1; background: #111; display: flex; flex-direction: column; justify-content: center; gap: 8px; padding: 15px; border-top: 3px solid #ffcc00; }
         .row { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
-        
-        .btn { background: #ffcc00; color: #000; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; }
-        .btn-add { background: #28a745; color: white; } /* زر الإضافة أخضر المميز */
+        .btn { background: #ffcc00; color: #000; border: none; padding: 10px 18px; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 14px; }
+        .btn-add { background: #28a745; color: white; }
         .btn-reset { background: #fff; color: #000; }
-        
         #file-input { display: none; }
-        .glasses-btn { min-width: 80px; }
     </style>
 </head>
 <body>
 
-    <!-- الشاشة 1: البداية -->
     <div id="entry-screen">
-        <h1 style="color: #ffcc00;">بصريات أضواء</h1>
-        <button class="btn" onclick="goToCapture()">تشغيل نظام القياس 🕶️</button>
+        <h1 style="color: #ffcc00; font-size: 36px;">بصريات أضواء</h1>
+        <button class="btn" style="padding: 15px 30px;" onclick="goToCapture()">ابدأ تجربة القياس 🕶️</button>
     </div>
 
-    <!-- الشاشة 2: التقاط الصورة -->
     <div id="capture-screen">
         <video id="video-preview" playsinline autoplay></video>
         <div class="toolbar">
-            <button class="btn" onclick="capturePhoto()" style="width: 80%; margin: 0 auto; padding: 15px;">التقط صورة الزبون 📸</button>
+            <button class="btn" onclick="capturePhoto()" style="width: 80%; margin: 0 auto; padding: 15px;">التقط صورة للزبون 📸</button>
         </div>
     </div>
 
-    <!-- الشاشة 3: القياس وإضافة النظارات -->
     <div id="editor-screen">
         <div id="canvas-wrap">
             <img id="photo-result">
-            <img id="glasses-overlay" draggable="false">
+            <!-- صورتك الشفافة مضافة هنا كافتراضية -->
+            <img id="glasses-overlay" src="https://i.ibb.co/Lkv2Y7C/glasses-clear.png" draggable="false">
         </div>
-        
         <div class="toolbar">
-            <!-- قائمة النظارات (تضاف هنا تلقائياً) -->
             <div class="row" id="glasses-menu">
-                <label for="file-input" class="btn btn-add">➕ أضف نظارة من المحل</label>
+                <button class="btn" onclick="setGlasses('https://i.ibb.co/Lkv2Y7C/glasses-clear.png')">موديل المحل الأصلي</button>
+                <label for="file-input" class="btn btn-add">➕ أضف نظارة أخرى</label>
                 <input type="file" id="file-input" accept="image/*" onchange="addNewGlasses(event)">
             </div>
-            
             <div class="row">
                 <button class="btn" onclick="resize(1.1)">➕ تكبير</button>
                 <button class="btn" onclick="resize(0.9)">➖ تصغير</button>
@@ -87,25 +89,19 @@
             document.getElementById('editor-screen').style.display = 'flex';
         }
 
-        // الوظيفة السحرية: إضافة نظارة جديدة بدون كود
+        function setGlasses(url) { glasses.src = url; }
+
         function addNewGlasses(event) {
             const file = event.target.files[0];
             if (file) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     const imageUrl = e.target.result;
-                    
-                    // 1. إظهار النظارة فوراً على الوجه
-                    glasses.src = imageUrl;
-                    glasses.style.display = 'block';
-                    
-                    // 2. إنشاء زر جديد لهذه النظارة في القائمة
+                    setGlasses(imageUrl);
                     const newBtn = document.createElement('button');
-                    newBtn.className = 'btn glasses-btn';
-                    newBtn.innerText = 'موديل ' + (glassesMenu.children.length);
-                    newBtn.onclick = () => { glasses.src = imageUrl; };
-                    
-                    // إضافة الزر قبل زر "إضافة نظارة جديدة"
+                    newBtn.className = 'btn';
+                    newBtn.innerText = 'موديل جديد';
+                    newBtn.onclick = () => { setGlasses(imageUrl); };
                     glassesMenu.insertBefore(newBtn, document.querySelector('.btn-add'));
                 };
                 reader.readAsDataURL(file);
@@ -114,7 +110,7 @@
 
         function resize(f) { glasses.style.width = (glasses.offsetWidth * f) + "px"; }
 
-        // نظام التحريك
+        // التحريك
         let isDragging = false, currentX = 0, currentY = 0, initialX, initialY;
         function dragStart(e) {
             let cx = e.type === "touchstart" ? e.touches[0].clientX : e.clientX;
