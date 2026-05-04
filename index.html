@@ -3,138 +3,171 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>بصريات أضواء - AR</title>
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-face-three.prod.js"></script>
-
+    <title>بصريات أضواء - نظام القياس الذكي</title>
     <style>
-        /* إعدادات الصفحة الأساسية */
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; display: flex; flex-direction: column; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; font-family: 'Segoe UI', Tahoma, sans-serif; background: #000; color: white; overflow: hidden; }
         
-        /* منطقة الكاميرا (80% من الشاشة) */
-        #container { flex: 8; position: relative; width: 100%; background: #000; z-index: 1; }
-
-        /* منطقة الأزرار (20% من الشاشة) - معزولة لضمان اللمس */
-        #toolbar { 
-            flex: 2; 
-            background: #111; 
-            display: flex; 
-            flex-direction: column; 
-            justify-content: space-around; 
-            padding: 10px; 
-            border-top: 2px solid #ffcc00; 
-            z-index: 1000; 
-        }
-
-        .row { display: flex; justify-content: center; gap: 10px; width: 100%; }
+        /* شاشة الكاميرا والالتقاط */
+        #camera-view { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; z-index: 10; }
+        video { width: 100%; height: 75%; object-fit: cover; background: #111; }
         
-        .btn { 
-            background: #ffcc00; color: #000; border: none; 
-            padding: 12px; border-radius: 10px; 
-            font-weight: bold; cursor: pointer; flex: 1;
-            font-size: 14px; text-align: center;
-        }
-
-        .dot { 
-            width: 35px; height: 35px; border-radius: 50%; 
-            border: 2px solid #fff; cursor: pointer; 
-        }
-
-        #start-overlay { 
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: #000; display: flex; flex-direction: column; 
-            align-items: center; justify-content: center; z-index: 9999; color: white; 
-        }
+        /* شاشة التعديل والقياس */
+        #editor-view { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; flex-direction: column; z-index: 20; }
+        #canvas-container { position: relative; width: 100%; height: 70%; background: #222; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+        #user-photo { max-width: 100%; max-height: 100%; pointer-events: none; }
         
-        /* إجبار الفيديو على الظهور */
-        video { object-fit: cover !important; }
+        /* النظارة القابلة للسحب */
+        #glasses-overlay { 
+            position: absolute; 
+            width: 160px; 
+            cursor: move; 
+            touch-action: none;
+            user-select: none;
+            z-index: 30;
+        }
+
+        /* شريط الأدوات السفلي */
+        .toolbar { flex: 1; background: #111; display: flex; flex-direction: column; justify-content: center; gap: 10px; padding: 15px; border-top: 3px solid #ffcc00; }
+        .row { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+        
+        .btn { background: #ffcc00; color: #000; border: none; padding: 10px 18px; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 14px; transition: 0.2s; }
+        .btn:active { transform: scale(0.95); }
+        .btn-add { background: #28a745; color: white; }
+        .btn-reset { background: #dc3545; color: white; }
+
+        #file-input { display: none; }
     </style>
 </head>
 <body>
 
-    <div id="start-overlay">
-        <h1 style="color: #ffcc00;">بصريات أضواء</h1>
-        <button class="btn" onclick="startExperience()" style="max-width: 250px; font-size: 18px;">تشغيل الكاميرا والقياس 👓</button>
-        <p style="margin-top: 15px; font-size: 12px; color: #aaa;">تأكد من وجود إضاءة جيدة لوجهك</p>
+    <!-- المرحلة 1: التقاط الصورة -->
+    <div id="camera-view">
+        <video id="video" playsinline autoplay></video>
+        <div class="toolbar">
+            <h2 style="text-align: center; color: #ffcc00; margin: 0;">بصريات أضواء</h2>
+            <button class="btn" onclick="takePhoto()">التقط صورة للقياس الآن 📸</button>
+        </div>
     </div>
 
-    <div id="container"></div>
-
-    <div id="toolbar">
-        <div class="row">
-            <button class="btn" onclick="loadGlasses('wayfarer')">موديل Wayfarer</button>
-            <button class="btn" onclick="loadGlasses('aviator')">موديل Aviator</button>
-            <button class="btn" id="photoBtn" onclick="toggleLensStatus()" style="background: #fff;">وضع الشمس ☀️</button>
+    <!-- المرحلة 2: اختيار ورفع وتعديل النظارات -->
+    <div id="editor-view">
+        <div id="canvas-container">
+            <img id="user-photo">
+            <!-- نظارة افتراضية للبدء -->
+            <img id="glasses-overlay" src="https://i.imgur.com/39D8Nn7.png" draggable="false">
         </div>
-        <div class="row">
-            <div class="dot" style="background: #000;" onclick="changeFrameColor(0x000000)"></div>
-            <div class="dot" style="background: #ffd700;" onclick="changeFrameColor(0xffd700)"></div>
-            <div class="dot" style="background: #c0c0c0;" onclick="changeFrameColor(0xc0c0c0)"></div>
-            <div class="dot" style="background: #4a2c2a;" onclick="changeColor(0x4a2c2a)"></div>
+        
+        <div class="toolbar">
+            <!-- قائمة الموديلات -->
+            <div class="row" id="glasses-list">
+                <button class="btn" onclick="changeGlasses('https://i.imgur.com/39D8Nn7.png')">Wayfarer</button>
+                <button class="btn" onclick="changeGlasses('https://i.imgur.com/HnU5E98.png')">Aviator</button>
+                
+                <!-- زر إضافة نظارة جديدة من المحل -->
+                <label for="file-input" class="btn btn-add">➕ أضف موديل جديد</label>
+                <input type="file" id="file-input" accept="image/*" onchange="uploadNewGlasses(event)">
+            </div>
+            
+            <!-- أزرار التحكم في الحجم والإعادة -->
+            <div class="row">
+                <button class="btn" onclick="resize(1.1)">➕ تكبير</button>
+                <button class="btn" onclick="resize(0.9)">➖ تصغير</button>
+                <button class="btn btn-reset" onclick="resetCamera()">🔄 صورة جديدة</button>
+            </div>
         </div>
     </div>
 
     <script>
-        let mindarThree, anchor, currentGroup, frameMat, lensMat, isDark = false;
+        const video = document.getElementById('video');
+        const userPhoto = document.getElementById('user-photo');
+        const glasses = document.getElementById('glasses-overlay');
+        const cameraView = document.getElementById('camera-view');
+        const editorView = document.getElementById('editor-view');
 
-        async function startExperience() {
-            document.getElementById('start-overlay').style.display = 'none';
-            
-            mindarThree = new window.MINDAR.FACE.MindARThree({
-                container: document.querySelector("#container"),
-            });
-            
-            const {renderer, scene, camera} = mindarThree;
-            scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.5));
-            anchor = mindarThree.addAnchor(168);
+        // طلب إذن الكاميرا وتشغيلها
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+            .then(stream => { video.srcObject = stream; })
+            .catch(err => alert("عذراً، يرجى السماح بالوصول للكاميرا لتجربة النظارات."));
 
-            try {
-                await mindarThree.start();
-                renderer.setAnimationLoop(() => renderer.render(scene, camera));
-                loadGlasses('wayfarer'); // تحميل أول موديل تلقائياً
-            } catch (e) {
-                alert("يرجى تحديث الصفحة والسماح للكاميرا");
+        // وظيفة التقاط الصورة وتحويلها لشاشة التعديل
+        function takePhoto() {
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            userPhoto.src = canvas.toDataURL('image/png');
+            cameraView.style.display = 'none';
+            editorView.style.display = 'flex';
+        }
+
+        // وظيفة تغيير موديل النظارة
+        function changeGlasses(url) {
+            glasses.src = url;
+            glasses.style.display = 'block';
+        }
+
+        // وظيفة رفع صورة نظارة جديدة من الجهاز
+        function uploadNewGlasses(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const newUrl = e.target.result;
+                    changeGlasses(newUrl);
+                    
+                    // إضافة زر الموديل الجديد للقائمة تلقائياً
+                    const btn = document.createElement('button');
+                    btn.className = 'btn';
+                    btn.innerText = 'موديل مضاف';
+                    btn.onclick = () => changeGlasses(newUrl);
+                    document.getElementById('glasses-list').insertBefore(btn, document.querySelector('.btn-add'));
+                };
+                reader.readAsDataURL(file);
             }
         }
 
-        window.loadGlasses = (type) => {
-            if (currentGroup) anchor.group.remove(currentGroup);
-            currentGroup = new THREE.Group();
-            
-            frameMat = new THREE.MeshStandardMaterial({color: 0x000000, roughness: 0.3, metalness: 0.7});
-            lensMat = new THREE.MeshStandardMaterial({
-                color: isDark ? 0x111111 : 0xffffff, 
-                transparent: true, 
-                opacity: isDark ? 0.8 : 0.15
-            });
+        // وظيفة التحكم في الحجم
+        function resize(factor) {
+            let currentWidth = glasses.offsetWidth;
+            glasses.style.width = (currentWidth * factor) + "px";
+        }
 
-            if (type === 'wayfarer') {
-                const f = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.5, 0.1), frameMat);
-                const l = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.4), lensMat);
-                l.position.z = 0.06;
-                currentGroup.add(f, l);
-            } else {
-                const l = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.04, 16, 100), frameMat); l.position.x = -0.4;
-                const r = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.04, 16, 100), frameMat); r.position.x = 0.4;
-                const lLens = new THREE.Mesh(new THREE.CircleGeometry(0.33, 32), lensMat); lLens.position.set(-0.4, 0, 0.01);
-                const rLens = new THREE.Mesh(new THREE.CircleGeometry(0.33, 32), lensMat); rLens.position.set(0.4, 0, 0.01);
-                currentGroup.add(l, r, lLens, rLens);
+        function resetCamera() {
+            editorView.style.display = 'none';
+            cameraView.style.display = 'flex';
+            xOffset = 0; yOffset = 0;
+            setTranslate(0, 0, glasses);
+        }
+
+        // منطق السحب والتحريك (Drag & Drop)
+        let active = false, currentX, currentY, initialX, initialY, xOffset = 0, yOffset = 0;
+        const container = document.getElementById("canvas-container");
+
+        container.addEventListener("touchstart", dragStart, false);
+        container.addEventListener("touchend", dragEnd, false);
+        container.addEventListener("touchmove", drag, false);
+        container.addEventListener("mousedown", dragStart, false);
+        container.addEventListener("mouseup", dragEnd, false);
+        container.addEventListener("mousemove", drag, false);
+
+        function dragStart(e) {
+            let event = e.type === "touchstart" ? e.touches[0] : e;
+            initialX = event.clientX - xOffset;
+            initialY = event.clientY - yOffset;
+            if (e.target === glasses) active = true;
+        }
+        function dragEnd() { initialX = currentX; initialY = currentY; active = false; }
+        function drag(e) {
+            if (active) {
+                e.preventDefault();
+                let event = e.type === "touchmove" ? e.touches[0] : e;
+                currentX = event.clientX - initialX;
+                currentY = event.clientY - initialY;
+                xOffset = currentX; yOffset = currentY;
+                setTranslate(currentX, currentY, glasses);
             }
-            currentGroup.scale.set(0.5, 0.5, 0.5);
-            anchor.group.add(currentGroup);
-        };
-
-        window.changeFrameColor = (c) => { if(frameMat) frameMat.color.setHex(c); };
-
-        window.toggleLensStatus = () => {
-            isDark = !isDark;
-            document.getElementById('photoBtn').innerText = isDark ? "داخلي 🏠" : "شمس ☀️";
-            if(lensMat) {
-                lensMat.color.setHex(isDark ? 0x111111 : 0xffffff);
-                lensMat.opacity = isDark ? 0.8 : 0.15;
-            }
-        };
+        }
+        function setTranslate(xPos, yPos, el) { el.style.transform = `translate3d(${xPos}px, ${yPos}px, 0)`; }
     </script>
 </body>
 </html>
