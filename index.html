@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>بصريات أضواء - VTO</title>
+    <title>بصريات أضواء - نظام القياس المطور</title>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; font-family: sans-serif; background: #000; color: white; overflow: hidden; }
         
@@ -12,48 +12,45 @@
         
         /* شاشة 2: التقاط الصورة */
         #capture-screen { display: none; position: fixed; inset: 0; flex-direction: column; z-index: 50; }
-        #video-preview { width: 100%; height: 80%; object-fit: cover; }
+        #video-preview { width: 100%; height: 75%; object-fit: cover; background: #111; }
 
         /* شاشة 3: التعديل والقياس */
         #editor-screen { display: none; position: fixed; inset: 0; flex-direction: column; z-index: 25; }
-        #canvas-wrap { position: relative; width: 100%; height: 75%; background: #222; display: flex; justify-content: center; align-items: center; overflow: hidden; }
-        #photo-result { max-width: 100%; max-height: 100%; }
-        #glasses-overlay { position: absolute; width: 160px; cursor: move; touch-action: none; z-index: 30; }
+        #canvas-wrap { position: relative; width: 100%; height: 70%; background: #222; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+        #photo-result { max-width: 100%; max-height: 100%; user-select: none; pointer-events: none; }
+        #glasses-overlay { position: absolute; width: 180px; cursor: move; touch-action: none; z-index: 30; user-select: none; }
 
-        /* العناصر المشتركة */
-        .toolbar { flex: 1; background: #111; display: flex; flex-direction: column; justify-content: center; gap: 10px; padding: 15px; border-top: 3px solid #ffcc00; }
-        .btn { background: #ffcc00; color: #000; border: none; padding: 12px 20px; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.2s; }
+        /* شريط الأدوات */
+        .toolbar { flex: 1; background: #111; display: flex; flex-direction: column; justify-content: center; gap: 8px; padding: 12px; border-top: 3px solid #ffcc00; }
+        .btn { background: #ffcc00; color: #000; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; transition: 0.2s; }
         .btn:active { transform: scale(0.95); }
-        .row { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+        .row { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
     </style>
 </head>
 <body>
 
-    <!-- الشاشة 1: البداية -->
     <div id="entry-screen">
-        <h1 style="color: #ffcc00; font-size: 32px; margin-bottom: 20px;">بصريات أضواء</h1>
-        <button class="btn" onclick="goToCapture()">ابدأ تجربة القياس 👓</button>
+        <h1 style="color: #ffcc00; font-size: 28px; margin-bottom: 20px;">بصريات أضواء</h1>
+        <button class="btn" onclick="goToCapture()">ابدأ تجربة القياس 🕶️</button>
     </div>
 
-    <!-- الشاشة 2: التقاط الصورة -->
     <div id="capture-screen">
-        <video id="video" playsinline autoplay></video>
+        <video id="video-preview" playsinline autoplay></video>
         <div class="toolbar">
-            <button class="btn" onclick="capturePhoto()">التقط الصورة الآن 📸</button>
+            <button class="btn" onclick="capturePhoto()" style="padding: 15px;">التقط الصورة الآن 📸</button>
         </div>
     </div>
 
-    <!-- الشاشة 3: التعديل والقياس -->
     <div id="editor-screen">
         <div id="canvas-wrap">
             <img id="photo-result">
-            <!-- النظارة الافتراضية الأولى -->
-            <img id="glasses-overlay" src="https://i.imgur.com/39D8Nn7.png" draggable="false">
+            <!-- روابط بديلة مستقرة للنظارات -->
+            <img id="glasses-overlay" src="https://openclipart.org/image/400px/171501" draggable="false">
         </div>
         <div class="toolbar">
             <div class="row">
-                <button class="btn" onclick="setGlasses('https://i.imgur.com/39D8Nn7.png')">موديل 1 (Wayfarer)</button>
-                <button class="btn" onclick="setGlasses('https://i.imgur.com/HnU5E98.png')">موديل 2 (Aviator)</button>
+                <button class="btn" onclick="setGlasses('https://openclipart.org/image/400px/171501')">موديل 1 (Wayfarer)</button>
+                <button class="btn" onclick="setGlasses('https://openclipart.org/image/400px/216514')">موديل 2 (Aviator)</button>
             </div>
             <div class="row">
                 <button class="btn" onclick="resize(1.1)">➕ تكبير</button>
@@ -64,59 +61,60 @@
     </div>
 
     <script>
-        const video = document.getElementById('video');
+        const video = document.getElementById('video-preview');
         const photoResult = document.getElementById('photo-result');
         const glasses = document.getElementById('glasses-overlay');
+        const canvasWrap = document.getElementById('canvas-wrap');
 
-        // الانتقال لشاشة الالتقاط وتشغيل الكاميرا
         function goToCapture() {
             document.getElementById('entry-screen').style.display = 'none';
             document.getElementById('capture-screen').style.display = 'flex';
-            
             navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
                 .then(stream => { video.srcObject = stream; })
                 .catch(() => alert("يرجى السماح بالوصول للكاميرا"));
         }
 
-        // التقاط الصورة والانتقال لشاشة التعديل
         function capturePhoto() {
             const canvas = document.createElement('canvas');
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             canvas.getContext('2d').drawImage(video, 0, 0);
-            
             photoResult.src = canvas.toDataURL('image/png');
             document.getElementById('capture-screen').style.display = 'none';
             document.getElementById('editor-screen').style.display = 'flex';
         }
 
-        // تغيير موديل النظارة
-        function setGlasses(url) {
-            glasses.src = url;
-        }
-
-        // تحريك النظارة وتغيير حجمها
+        function setGlasses(url) { glasses.src = url; }
         function resize(f) { glasses.style.width = (glasses.offsetWidth * f) + "px"; }
 
-        let active = false, xOff = 0, yOff = 0, startX, startY;
-        const container = document.getElementById("canvas-wrap");
+        // نظام التحريك الشامل (ماوس + لمس)
+        let isDragging = false, currentX = 0, currentY = 0, initialX, initialY;
 
-        container.addEventListener("touchstart", (e) => {
-            active = true;
-            startX = e.touches[0].clientX - xOff;
-            startY = e.touches[0].clientY - yOff;
-        });
+        function dragStart(e) {
+            initialX = (e.type === "touchstart" ? e.touches[0].clientX : e.clientX) - currentX;
+            initialY = (e.type === "touchstart" ? e.touches[0].clientY : e.clientY) - currentY;
+            if (e.target === glasses) isDragging = true;
+        }
 
-        container.addEventListener("touchmove", (e) => {
-            if (active) {
+        function dragEnd() { isDragging = false; }
+
+        function drag(e) {
+            if (isDragging) {
                 e.preventDefault();
-                xOff = e.touches[0].clientX - startX;
-                yOff = e.touches[0].clientY - startY;
-                glasses.style.transform = `translate3d(${xOff}px, ${yOff}px, 0)`;
+                let x = e.type === "touchmove" ? e.touches[0].clientX : e.clientX;
+                let y = e.type === "touchmove" ? e.touches[0].clientY : e.clientY;
+                currentX = x - initialX;
+                currentY = y - initialY;
+                glasses.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
             }
-        });
+        }
 
-        container.addEventListener("touchend", () => active = false);
+        canvasWrap.addEventListener("mousedown", dragStart);
+        canvasWrap.addEventListener("touchstart", dragStart);
+        window.addEventListener("mouseup", dragEnd);
+        window.addEventListener("touchend", dragEnd);
+        canvasWrap.addEventListener("mousemove", drag);
+        canvasWrap.addEventListener("touchmove", drag);
     </script>
 </body>
 </html>
