@@ -3,171 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>بصريات أضواء - نظام القياس الذكي</title>
+    <title>بصريات أضواء - VTO</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; font-family: 'Segoe UI', Tahoma, sans-serif; background: #000; color: white; overflow: hidden; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; font-family: sans-serif; background: #000; color: white; overflow: hidden; }
         
-        /* شاشة الكاميرا والالتقاط */
-        #camera-view { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; z-index: 10; }
-        video { width: 100%; height: 75%; object-fit: cover; background: #111; }
+        /* شاشة 1: البداية */
+        #entry-screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #000; z-index: 100; text-align: center; }
         
-        /* شاشة التعديل والقياس */
-        #editor-view { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; flex-direction: column; z-index: 20; }
-        #canvas-container { position: relative; width: 100%; height: 70%; background: #222; display: flex; justify-content: center; align-items: center; overflow: hidden; }
-        #user-photo { max-width: 100%; max-height: 100%; pointer-events: none; }
-        
-        /* النظارة القابلة للسحب */
-        #glasses-overlay { 
-            position: absolute; 
-            width: 160px; 
-            cursor: move; 
-            touch-action: none;
-            user-select: none;
-            z-index: 30;
-        }
+        /* شاشة 2: التقاط الصورة */
+        #capture-screen { display: none; position: fixed; inset: 0; flex-direction: column; z-index: 50; }
+        #video-preview { width: 100%; height: 80%; object-fit: cover; }
 
-        /* شريط الأدوات السفلي */
+        /* شاشة 3: التعديل والقياس */
+        #editor-screen { display: none; position: fixed; inset: 0; flex-direction: column; z-index: 25; }
+        #canvas-wrap { position: relative; width: 100%; height: 75%; background: #222; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+        #photo-result { max-width: 100%; max-height: 100%; }
+        #glasses-overlay { position: absolute; width: 160px; cursor: move; touch-action: none; z-index: 30; }
+
+        /* العناصر المشتركة */
         .toolbar { flex: 1; background: #111; display: flex; flex-direction: column; justify-content: center; gap: 10px; padding: 15px; border-top: 3px solid #ffcc00; }
-        .row { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
-        
-        .btn { background: #ffcc00; color: #000; border: none; padding: 10px 18px; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 14px; transition: 0.2s; }
+        .btn { background: #ffcc00; color: #000; border: none; padding: 12px 20px; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.2s; }
         .btn:active { transform: scale(0.95); }
-        .btn-add { background: #28a745; color: white; }
-        .btn-reset { background: #dc3545; color: white; }
-
-        #file-input { display: none; }
+        .row { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
     </style>
 </head>
 <body>
 
-    <!-- المرحلة 1: التقاط الصورة -->
-    <div id="camera-view">
+    <!-- الشاشة 1: البداية -->
+    <div id="entry-screen">
+        <h1 style="color: #ffcc00; font-size: 32px; margin-bottom: 20px;">بصريات أضواء</h1>
+        <button class="btn" onclick="goToCapture()">ابدأ تجربة القياس 👓</button>
+    </div>
+
+    <!-- الشاشة 2: التقاط الصورة -->
+    <div id="capture-screen">
         <video id="video" playsinline autoplay></video>
         <div class="toolbar">
-            <h2 style="text-align: center; color: #ffcc00; margin: 0;">بصريات أضواء</h2>
-            <button class="btn" onclick="takePhoto()">التقط صورة للقياس الآن 📸</button>
+            <button class="btn" onclick="capturePhoto()">التقط الصورة الآن 📸</button>
         </div>
     </div>
 
-    <!-- المرحلة 2: اختيار ورفع وتعديل النظارات -->
-    <div id="editor-view">
-        <div id="canvas-container">
-            <img id="user-photo">
-            <!-- نظارة افتراضية للبدء -->
+    <!-- الشاشة 3: التعديل والقياس -->
+    <div id="editor-screen">
+        <div id="canvas-wrap">
+            <img id="photo-result">
+            <!-- النظارة الافتراضية الأولى -->
             <img id="glasses-overlay" src="https://i.imgur.com/39D8Nn7.png" draggable="false">
         </div>
-        
         <div class="toolbar">
-            <!-- قائمة الموديلات -->
-            <div class="row" id="glasses-list">
-                <button class="btn" onclick="changeGlasses('https://i.imgur.com/39D8Nn7.png')">Wayfarer</button>
-                <button class="btn" onclick="changeGlasses('https://i.imgur.com/HnU5E98.png')">Aviator</button>
-                
-                <!-- زر إضافة نظارة جديدة من المحل -->
-                <label for="file-input" class="btn btn-add">➕ أضف موديل جديد</label>
-                <input type="file" id="file-input" accept="image/*" onchange="uploadNewGlasses(event)">
+            <div class="row">
+                <button class="btn" onclick="setGlasses('https://i.imgur.com/39D8Nn7.png')">موديل 1 (Wayfarer)</button>
+                <button class="btn" onclick="setGlasses('https://i.imgur.com/HnU5E98.png')">موديل 2 (Aviator)</button>
             </div>
-            
-            <!-- أزرار التحكم في الحجم والإعادة -->
             <div class="row">
                 <button class="btn" onclick="resize(1.1)">➕ تكبير</button>
                 <button class="btn" onclick="resize(0.9)">➖ تصغير</button>
-                <button class="btn btn-reset" onclick="resetCamera()">🔄 صورة جديدة</button>
+                <button class="btn" onclick="location.reload()" style="background: #fff;">🔄 إعادة</button>
             </div>
         </div>
     </div>
 
     <script>
         const video = document.getElementById('video');
-        const userPhoto = document.getElementById('user-photo');
+        const photoResult = document.getElementById('photo-result');
         const glasses = document.getElementById('glasses-overlay');
-        const cameraView = document.getElementById('camera-view');
-        const editorView = document.getElementById('editor-view');
 
-        // طلب إذن الكاميرا وتشغيلها
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
-            .then(stream => { video.srcObject = stream; })
-            .catch(err => alert("عذراً، يرجى السماح بالوصول للكاميرا لتجربة النظارات."));
+        // الانتقال لشاشة الالتقاط وتشغيل الكاميرا
+        function goToCapture() {
+            document.getElementById('entry-screen').style.display = 'none';
+            document.getElementById('capture-screen').style.display = 'flex';
+            
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+                .then(stream => { video.srcObject = stream; })
+                .catch(() => alert("يرجى السماح بالوصول للكاميرا"));
+        }
 
-        // وظيفة التقاط الصورة وتحويلها لشاشة التعديل
-        function takePhoto() {
+        // التقاط الصورة والانتقال لشاشة التعديل
+        function capturePhoto() {
             const canvas = document.createElement('canvas');
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             canvas.getContext('2d').drawImage(video, 0, 0);
-            userPhoto.src = canvas.toDataURL('image/png');
-            cameraView.style.display = 'none';
-            editorView.style.display = 'flex';
+            
+            photoResult.src = canvas.toDataURL('image/png');
+            document.getElementById('capture-screen').style.display = 'none';
+            document.getElementById('editor-screen').style.display = 'flex';
         }
 
-        // وظيفة تغيير موديل النظارة
-        function changeGlasses(url) {
+        // تغيير موديل النظارة
+        function setGlasses(url) {
             glasses.src = url;
-            glasses.style.display = 'block';
         }
 
-        // وظيفة رفع صورة نظارة جديدة من الجهاز
-        function uploadNewGlasses(event) {
-            const file = event.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const newUrl = e.target.result;
-                    changeGlasses(newUrl);
-                    
-                    // إضافة زر الموديل الجديد للقائمة تلقائياً
-                    const btn = document.createElement('button');
-                    btn.className = 'btn';
-                    btn.innerText = 'موديل مضاف';
-                    btn.onclick = () => changeGlasses(newUrl);
-                    document.getElementById('glasses-list').insertBefore(btn, document.querySelector('.btn-add'));
-                };
-                reader.readAsDataURL(file);
-            }
-        }
+        // تحريك النظارة وتغيير حجمها
+        function resize(f) { glasses.style.width = (glasses.offsetWidth * f) + "px"; }
 
-        // وظيفة التحكم في الحجم
-        function resize(factor) {
-            let currentWidth = glasses.offsetWidth;
-            glasses.style.width = (currentWidth * factor) + "px";
-        }
+        let active = false, xOff = 0, yOff = 0, startX, startY;
+        const container = document.getElementById("canvas-wrap");
 
-        function resetCamera() {
-            editorView.style.display = 'none';
-            cameraView.style.display = 'flex';
-            xOffset = 0; yOffset = 0;
-            setTranslate(0, 0, glasses);
-        }
+        container.addEventListener("touchstart", (e) => {
+            active = true;
+            startX = e.touches[0].clientX - xOff;
+            startY = e.touches[0].clientY - yOff;
+        });
 
-        // منطق السحب والتحريك (Drag & Drop)
-        let active = false, currentX, currentY, initialX, initialY, xOffset = 0, yOffset = 0;
-        const container = document.getElementById("canvas-container");
-
-        container.addEventListener("touchstart", dragStart, false);
-        container.addEventListener("touchend", dragEnd, false);
-        container.addEventListener("touchmove", drag, false);
-        container.addEventListener("mousedown", dragStart, false);
-        container.addEventListener("mouseup", dragEnd, false);
-        container.addEventListener("mousemove", drag, false);
-
-        function dragStart(e) {
-            let event = e.type === "touchstart" ? e.touches[0] : e;
-            initialX = event.clientX - xOffset;
-            initialY = event.clientY - yOffset;
-            if (e.target === glasses) active = true;
-        }
-        function dragEnd() { initialX = currentX; initialY = currentY; active = false; }
-        function drag(e) {
+        container.addEventListener("touchmove", (e) => {
             if (active) {
                 e.preventDefault();
-                let event = e.type === "touchmove" ? e.touches[0] : e;
-                currentX = event.clientX - initialX;
-                currentY = event.clientY - initialY;
-                xOffset = currentX; yOffset = currentY;
-                setTranslate(currentX, currentY, glasses);
+                xOff = e.touches[0].clientX - startX;
+                yOff = e.touches[0].clientY - startY;
+                glasses.style.transform = `translate3d(${xOff}px, ${yOff}px, 0)`;
             }
-        }
-        function setTranslate(xPos, yPos, el) { el.style.transform = `translate3d(${xPos}px, ${yPos}px, 0)`; }
+        });
+
+        container.addEventListener("touchend", () => active = false);
     </script>
 </body>
 </html>
